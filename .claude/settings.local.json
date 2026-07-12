@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter analyze *)",
+      "Bash(flutter compile *)",
+      "mcp__codebase-memory-mcp__index_repository",
+      "Bash(flutter pub *)",
+      "Bash(graphify query *)",
+      "mcp__codebase-memory-mcp__index_status"
+    ]
+  }
+}
