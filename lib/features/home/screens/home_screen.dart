@@ -83,6 +83,13 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('On-device Assistant'),
         leading: SizedBox.shrink(),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.smart_display_outlined),
+            tooltip: 'Glasses',
+            onPressed: () => Navigator.pushNamed(context, '/glasses'),
+          ),
+        ],
       ),
       body: _modelLoading
           ? const Center(child: CircularProgressIndicator())

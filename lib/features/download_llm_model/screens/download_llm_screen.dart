@@ -127,8 +127,8 @@ class _DownloadLlmScreenState extends State<DownloadLlmScreen> {
     if (_notifier.progress?.status == DownloadStatus.completed) {
       widget.onDownloadComplete?.call();
       if (mounted) {
-        // Relaunch from home to check path again
-        Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+        // Navigate to glasses after model download completes
+        Navigator.of(context).pushNamedAndRemoveUntil('/glasses', (route) => false);
       }
     }
   }
@@ -235,9 +235,9 @@ class _DownloadLlmScreenState extends State<DownloadLlmScreen> {
                           Expanded(
                             child: ElevatedButton(
                               onPressed: () {
-                                Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+                                Navigator.of(context).pushNamedAndRemoveUntil('/glasses', (route) => false);
                               },
-                              child: const Text('Go to Home'),
+                              child: const Text('Go to Glasses'),
                             ),
                           ),
                         ],

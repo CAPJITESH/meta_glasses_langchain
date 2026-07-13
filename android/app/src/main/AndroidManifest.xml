@@ -30,6 +30,18 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- Required by the Meta Wearables Device Access Toolkit (used by
+             flutter_meta_wearables_dat) — without these, camera/session calls
+             fail with "the app might be misconfigured" in logcat. Register
+             this app at https://wearables.developer.meta.com to get real
+             values, then replace the two placeholders below. -->
+        <meta-data
+            android:name="com.meta.wearable.mwdat.APPLICATION_ID"
+            android:value="TODO_REPLACE_WITH_REAL_MWDAT_APPLICATION_ID" />
+        <meta-data
+            android:name="com.meta.wearable.mwdat.CLIENT_TOKEN"
+            android:value="TODO_REPLACE_WITH_REAL_MWDAT_CLIENT_TOKEN" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

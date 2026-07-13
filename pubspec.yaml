@@ -39,10 +39,13 @@ dependencies:
   shared_preferences: ^2.2.0
   permission_handler: ^11.3.0
   crypto: ^3.0.3
+  flutter_tts: ^4.2.0
   fllama:
     git:
       url: https://github.com/Telosnex/fllama.git
       ref: main
+  flutter_meta_wearables_dat:
+    path: plugins/flutter_meta_wearables_dat
 
 dev_dependencies:
   flutter_test:

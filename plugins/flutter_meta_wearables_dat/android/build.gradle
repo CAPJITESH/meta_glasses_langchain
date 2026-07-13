@@ -1,0 +1,68 @@
+group 'com.example.flutter_meta_wearables_dat'
+version '1.0-SNAPSHOT'
+
+buildscript {
+    ext.kotlin_version = '2.1.0'
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.7.3'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
+}
+
+// Declared on rootProject.allprojects (not just this subproject's own
+// repositories{} block) because the consuming :app project resolves
+// :flutter_meta_wearables_dat's dependencies as part of its own
+// debugRuntimeClasspath — a repo declared only here would be invisible to
+// that resolution and mwdat-* would silently fail to resolve.
+rootProject.allprojects {
+    repositories {
+        google()
+        mavenCentral()
+        maven {
+            url 'https://maven.pkg.github.com/facebook/meta-wearables-dat-android'
+            credentials {
+                username = 'CAPJITESH'
+                password = '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'
+            }
+        }
+    }
+}
+
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+
+android {
+    namespace 'com.example.flutter_meta_wearables_dat'
+    compileSdk = 36
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
+    sourceSets {
+        main.java.srcDirs += 'src/main/kotlin'
+    }
+
+    defaultConfig {
+        // setCommunicationDevice()/clearCommunicationDevice() (used for HFP routing)
+        // require API 31; guarded at runtime in GlassesAudioManager for devices below that.
+        minSdkVersion 29
+    }
+}
+
+dependencies {
+    implementation 'com.meta.wearable:mwdat-core:0.8.0'
+    implementation 'com.meta.wearable:mwdat-camera:0.8.0'
+    implementation 'com.meta.wearable:mwdat-mockdevice:0.8.0'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0'
+}
