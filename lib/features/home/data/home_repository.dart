@@ -12,7 +12,7 @@ import '../../download_llm_model/data/llm_download_repository.dart';
 import '../models/extraction_result.dart';
 
 class HomeRepository {
-  HomeRepository({ServerLlmGate? serverLlmGate})
+  HomeRepository({ServerLlmGate? serverLlmGate, this.llmPhrasedReplies = true})
       : _serverLlmGate = serverLlmGate ?? const ServerLlmGate();
 
   final AiService _ai = AiService.instance;
@@ -21,14 +21,23 @@ class HomeRepository {
   final LlmDownloadRepository _downloadRepository = LlmDownloadRepository();
   final ServerLlmGate _serverLlmGate;
 
+  /// When true, template replies from GlassesMessageBuilder are reworded by
+  /// the model into natural speech before being spoken (facts preserved,
+  /// falls back to the template on any failure).
+  final bool llmPhrasedReplies;
+
   Future<void> ensureModelLoaded() async {
-    if (_ai.isReady) return;
-    await _downloadRepository.init();
-    final saved = await _downloadRepository.getSavedModel();
-    if (saved == null || !saved.isDownloaded || saved.localPath == null) {
-      throw StateError('No downloaded model found — go back to the download screen.');
+    if (!_ai.isReady) {
+      await _downloadRepository.init();
+      final saved = await _downloadRepository.getSavedModel();
+      if (saved == null || !saved.isDownloaded || saved.localPath == null) {
+        throw StateError('No downloaded model found — go back to the download screen.');
+      }
+      await _ai.init(saved.localPath!);
     }
-    await _ai.init(saved.localPath!);
+    // Pay the one-time weights/KV-cache load here (screens call this while
+    // showing a loading state) instead of inside the first user request.
+    await _ai.warmUp();
   }
 
   /// The UI no longer picks a feature_id — the model decides intent itself
@@ -39,11 +48,18 @@ class HomeRepository {
     final hint = _buildKnownLocalDataHint();
     final result = await _ai.extract(transcript: transcript, knownLocalDataHint: hint);
 
+    // --- Section 5/6: executor seam (checked BEFORE the server gate) ---------
+    // Executors handle their own parameter misses gracefully (fuzzy lookup,
+    // transcript fallback, specific "nothing saved" replies), so a matched
+    // executor intent should never be diverted to the server stub just
+    // because a schema field came back null.
+    final executor = FeatureExecutors.forIntent(result.intent);
+
     // --- Section 4: confidence gate -> server fallback -----------------------
     // Below the threshold, route to the server LLM (a stub for now) instead of
     // trusting the local answer. When a real backend lands, only
     // ServerLlmService's internals change — this call site does not.
-    if (_serverLlmGate.shouldFallback(result.confidence)) {
+    if (executor == null && _serverLlmGate.shouldFallback(result.confidence)) {
       final fallback = await _serverLlmGate.service.respond(
         ServerLlmRequest(
           transcript: transcript,
@@ -69,18 +85,20 @@ class HomeRepository {
       humanTime = TimeResolver.resolve(timeObj).human;
     }
 
-    // --- Section 5/6: executor seam -----------------------------------------
     // New features (remember/recall, RAG, OCR, geolocation) are handled by a
-    // registered executor keyed on intent; legacy intents have none and fall
-    // through to the original side-effect + message-builder path unchanged.
-    final executor = FeatureExecutors.forIntent(result.intent);
+    // registered executor keyed on intent (their replies already come from
+    // groundedAnswer, i.e. the model); legacy intents fall through to the
+    // side-effect + message-builder path, optionally reworded by the model.
     final String glassesMessage;
     if (executor != null) {
       glassesMessage = await executor.execute(result, transcript: transcript);
     } else {
       _store.applyStorageSideEffects(result.intent, result.parameters);
-      glassesMessage =
+      final draft =
           GlassesMessageBuilder.build(result.intent, result.parameters, humanTime);
+      glassesMessage = llmPhrasedReplies
+          ? await _ai.polishGlassesReply(transcript, draft)
+          : draft;
     }
 
     return HomeExtractionView(

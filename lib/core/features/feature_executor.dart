@@ -14,6 +14,7 @@
 library;
 
 import '../services/ai_service.dart';
+import '../services/local_data_store.dart';
 import '../services/memory_store.dart';
 
 /// Produces the spoken glasses reply for one matched intent.
@@ -34,6 +35,7 @@ class FeatureExecutors {
     for (final e in <FeatureExecutor>[
       RememberTopicExecutor(),
       RecallTopicExecutor(),
+      RecallStoredInfoExecutor(),
       RagQueryExecutor(),
       OcrReadTextExecutor(),
       QueryLocationExecutor(),
@@ -74,11 +76,13 @@ class RememberTopicExecutor implements FeatureExecutor {
 }
 
 class RecallTopicExecutor implements FeatureExecutor {
-  RecallTopicExecutor({MemoryStore? store, AiService? ai})
+  RecallTopicExecutor({MemoryStore? store, LocalDataStore? local, AiService? ai})
       : _store = store ?? MemoryStore.instance,
+        _local = local ?? LocalDataStore.instance,
         _ai = ai ?? AiService.instance;
 
   final MemoryStore _store;
+  final LocalDataStore _local;
   final AiService _ai;
 
   @override
@@ -94,6 +98,25 @@ class RecallTopicExecutor implements FeatureExecutor {
       return 'What would you like me to recall?';
     }
 
+    // Narrow retrieval: exact topic, else fuzzy top-1. Only this single entry
+    // is handed to the model — never the whole store. The model's job is to
+    // phrase the retrieved content back, not to remember on its own.
+    final entry = _store.recall(topic);
+    if (entry != null) {
+      return _ai.groundedAnswer(transcript, entry.content);
+    }
+
+    // Cross-store fallback: the same data may have been saved as a checklist
+    // or preference (create_list_v1 / save_preference_v1) rather than a
+    // remembered topic — the user doesn't distinguish, so recall shouldn't.
+    final stored = _local.lookupFuzzy(topic);
+    if (stored != null) {
+      return _ai.groundedAnswer(
+        transcript,
+        {'name': stored.name, 'items': stored.items},
+      );
+    }
+
     // Considered misses (Section 10): an empty store and a topic miss each get
     // a specific, helpful reply instead of handing null "stored data" to the
     // model and letting it improvise.
@@ -101,15 +124,56 @@ class RecallTopicExecutor implements FeatureExecutor {
       return "I don't have any memories yet. Say something like "
           '"remember my parking spot is on level 3" and I\'ll keep it.';
     }
+    return "I don't have anything saved about $topic yet.";
+  }
+}
 
-    // Narrow retrieval: exact topic, else fuzzy top-1. Only this single entry
-    // is handed to the model — never the whole store. The model's job is to
-    // phrase the retrieved content back, not to remember on its own.
-    final entry = _store.recall(topic);
-    if (entry == null) {
-      return "I don't have anything saved about $topic yet.";
+/// Answers "what's on my swimming checklist?" from the ACTUAL stored list.
+/// Previously this intent had no executor, so it fell through to a canned
+/// "Here's what's on your X list." template that never read the data.
+class RecallStoredInfoExecutor implements FeatureExecutor {
+  RecallStoredInfoExecutor({LocalDataStore? local, MemoryStore? memory, AiService? ai})
+      : _local = local ?? LocalDataStore.instance,
+        _memory = memory ?? MemoryStore.instance,
+        _ai = ai ?? AiService.instance;
+
+  final LocalDataStore _local;
+  final MemoryStore _memory;
+  final AiService _ai;
+
+  @override
+  String get featureId => 'recall_stored_info_v1';
+
+  @override
+  Future<String> execute(
+    ExtractionResult result, {
+    required String transcript,
+  }) async {
+    final reference = (result.parameters['reference'] as String?)?.trim();
+    // When extraction missed the reference, fall back to matching against the
+    // whole utterance — token overlap still finds "swimming checklist" in
+    // "what's on my swimming checklist".
+    final lookupKey =
+        (reference == null || reference.isEmpty) ? transcript : reference;
+
+    final stored = _local.lookupFuzzy(lookupKey);
+    if (stored != null) {
+      return _ai.groundedAnswer(
+        transcript,
+        {'name': stored.name, 'items': stored.items},
+      );
     }
-    return _ai.groundedAnswer(transcript, entry.content);
+
+    // Cross-store fallback: it may live in the remember/recall topic store.
+    final entry = _memory.recall(lookupKey);
+    if (entry != null) {
+      return _ai.groundedAnswer(transcript, entry.content);
+    }
+
+    if (reference == null || reference.isEmpty) {
+      return 'What would you like me to recall?';
+    }
+    return "I don't have anything saved about $reference yet.";
   }
 }
 

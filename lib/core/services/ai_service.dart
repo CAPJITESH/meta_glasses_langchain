@@ -42,15 +42,12 @@ class AiService {
   AiService._internal();
   static final AiService instance = AiService._internal();
 
-  /// Single context size for the interactive path (both [extract] stages and
-  /// [groundedAnswer]). fllama caches a native `server_context` per
-  /// (modelPath + params), and `n_ctx` (this value) is part of the match key —
-  /// so any call that changes contextSize forces fllama to tear down and
-  /// reload the whole context (re-`load_model`, re-allocate the KV cache).
-  /// Keeping every hot-path call on one size means the loaded context is
-  /// reused across calls instead of thrashing. Only rare, explicitly-invoked
-  /// long-context work ([summarizeMeetingTranscript]) opts into a larger size.
-  static const int interactiveContextSize = 1024;
+  /// Single context size for the interactive path. All hot-path prompts
+  /// (intent ~270 tokens, extraction ~450, grounded answer ~480) fit within
+  /// 512 tokens. fllama caches a native `server_context` per (modelPath +
+  /// params) and n_ctx is part of the match key, so keeping one size avoids
+  /// context thrashing. Only [summarizeMeetingTranscript] opts into 4096.
+  static const int interactiveContextSize = 512;
 
   /// GPU offload requested on every call. NOTE (Android): fllama's CMake only
   /// compiles a GPU backend for Apple (Metal) and Windows (Vulkan); the
@@ -67,13 +64,34 @@ class AiService {
   /// threads spill onto efficiency cores, so cap below the total core count
   /// rather than using all of them.
   static final int _numThreads =
-      Platform.numberOfProcessors <= 4 ? 2 : (Platform.numberOfProcessors - 2).clamp(2, 6);
+      Platform.numberOfProcessors <= 4 ? 2 : (Platform.numberOfProcessors - 2).clamp(2, 8);
 
   String? _modelPath;
   bool get isReady => _modelPath != null;
 
   Future<void> init(String modelPath) async {
     _modelPath = modelPath;
+  }
+
+  Future<void>? _warmUpFuture;
+
+  /// Runs one tiny inference so fllama loads the weights and allocates the KV
+  /// cache NOW rather than on the first real user request (which otherwise
+  /// pays the full ~30s model load). Uses [interactiveContextSize] and the
+  /// same thread count as the hot path so the warmed context is the exact one
+  /// later calls reuse. Idempotent — concurrent callers share one warm-up,
+  /// and a failed warm-up resets so it can be retried.
+  Future<void> warmUp() {
+    _ensureReady();
+    return _warmUpFuture ??= rawChat(
+      'ok',
+      maxTokens: 2,
+      temperature: 0.0,
+      systemPrompt: 'Reply with: ok',
+    ).then<void>((_) {}).catchError((Object e) {
+      _warmUpFuture = null;
+      throw e;
+    });
   }
 
   void _ensureReady() {
@@ -313,6 +331,34 @@ class AiService {
       onDelta: onDelta,
     );
     return result.trim();
+  }
+
+  /// Rephrases a deterministic template reply into one natural spoken
+  /// sentence for the glasses. The template stays the source of truth for
+  /// facts; the model only rewords it. Falls back to [draft] verbatim on any
+  /// error, empty output, or a suspiciously long rewrite, so this can never
+  /// make a turn fail — only sound better.
+  Future<String> polishGlassesReply(String transcript, String draft) async {
+    _ensureReady();
+    try {
+      final result = await rawChat(
+        jsonEncode({'user_said': transcript, 'reply': draft}),
+        temperature: 0.2,
+        maxTokens: 60,
+        systemPrompt: AiPrompts.glassesReplyPolishPrompt,
+        contextSize: interactiveContextSize,
+      );
+      var cleaned = result.trim();
+      if (cleaned.startsWith('"') && cleaned.endsWith('"') && cleaned.length > 1) {
+        cleaned = cleaned.substring(1, cleaned.length - 1).trim();
+      }
+      if (cleaned.isEmpty || cleaned.length > draft.length * 3 + 40) {
+        return draft;
+      }
+      return cleaned;
+    } catch (_) {
+      return draft;
+    }
   }
 
   /// Summarize a meeting transcript.

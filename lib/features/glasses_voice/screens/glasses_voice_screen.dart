@@ -11,11 +11,13 @@
 library;
 
 import 'dart:async';
+import 'dart:developer' as dev;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_meta_wearables_dat/flutter_meta_wearables_dat.dart';
 
 import '../../../app/theme.dart';
+import '../../home/data/home_repository.dart';
 import '../data/glasses_pipeline.dart';
 import '../widgets/pipeline_orb.dart';
 
@@ -48,6 +50,12 @@ class _GlassesVoiceScreenState extends State<GlassesVoiceScreen> {
   @override
   void initState() {
     super.initState();
+    // Preload + warm the on-device model while the user is still connecting
+    // the glasses, so the first voice turn doesn't pay the ~30s model load.
+    unawaited(HomeRepository().ensureModelLoaded().catchError((Object e) {
+      dev.log('Model preload failed (first turn will retry): $e',
+          name: 'GlassesVoiceScreen');
+    }));
     _cameraStateSub = _camera.connectionState.listen((state) {
       if (mounted) setState(() => _cameraState = state);
     });
