@@ -10,6 +10,11 @@ class HomeExtractionView {
   final String? humanTime;
   final String glassesMessage;
 
+  /// True when the confidence gate routed this turn to the server fallback
+  /// instead of the local answer (Section 4). [glassesMessage] then holds the
+  /// server (currently stub) response.
+  final bool usedServerFallback;
+
   const HomeExtractionView({
     required this.transcript,
     required this.intent,
@@ -18,5 +23,6 @@ class HomeExtractionView {
     required this.raw,
     required this.humanTime,
     required this.glassesMessage,
+    this.usedServerFallback = false,
   });
 }

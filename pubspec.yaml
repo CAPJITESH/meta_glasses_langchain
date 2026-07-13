@@ -40,6 +40,10 @@ dependencies:
   permission_handler: ^11.3.0
   crypto: ^3.0.3
   flutter_tts: ^4.2.0
+  # Offline on-device speech-to-text via whisper.cpp (same "native binding
+  # fronted by a Dart API" shape as fllama). Auto-downloads the ggml model on
+  # first use, then runs fully offline. Requires 16kHz mono PCM16 input.
+  whisper_ggml: ^1.2.0
   fllama:
     git:
       url: https://github.com/Telosnex/fllama.git

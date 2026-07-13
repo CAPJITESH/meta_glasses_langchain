@@ -22,17 +22,16 @@ abstract class TextToSpeech {
   Future<(Uint8List bytes, int sampleRateHz)> synthesize(String text);
 }
 
-/// There's no zero-setup on-device way to transcribe an arbitrary captured
-/// PCM buffer — Android's built-in SpeechRecognizer only listens through its
-/// own audio session, it can't accept an external buffer. Wire up a real
-/// backend (cloud API, Vosk, whisper.cpp, etc.) before using this in
-/// [GlassesVoiceAssistant].
+/// Explicit "not wired" STT. No longer the pipeline default —
+/// [GlassesAssistantPipeline] now defaults to `WhisperSpeechToText` (offline
+/// whisper.cpp). Kept as a clear sentinel for tests or a build that
+/// deliberately opts out of on-device transcription.
 class UnimplementedSpeechToText implements SpeechToText {
   @override
   Future<String> transcribe(Uint8List pcm16, int sampleRateHz) {
     throw UnimplementedError(
       'Wire up a real SpeechToText implementation (cloud API, Vosk, '
-      'whisper.cpp, etc.) before using GlassesVoiceAssistant.',
+      'whisper.cpp, etc.) before using GlassesAssistantPipeline.',
     );
   }
 }
@@ -57,13 +56,22 @@ class HomeIntentResponder implements AiResponder {
 /// Real, on-device text-to-speech via flutter_tts's synthesizeToFile — no
 /// API key or network access required.
 class FlutterTtsSpeech implements TextToSpeech {
-  FlutterTtsSpeech() : _tts = FlutterTts();
+  FlutterTtsSpeech() : _tts = FlutterTts() {
+    // synthesizeToFile's future otherwise resolves as soon as the engine
+    // *accepts* the request, before the file is actually written — reading
+    // it immediately after await races the native synth and can yield a
+    // 0-byte file. This makes the future wait for the real completion
+    // callback instead.
+    _ready = _tts.awaitSynthCompletion(true);
+  }
 
   final FlutterTts _tts;
+  late final Future<dynamic> _ready;
   int _fileCounter = 0;
 
   @override
   Future<(Uint8List, int)> synthesize(String text) async {
+    await _ready;
     final dir = await getTemporaryDirectory();
     final filePath = '${dir.path}/glasses_tts_${_fileCounter++}.wav';
     await _tts.synthesizeToFile(text, filePath, true);

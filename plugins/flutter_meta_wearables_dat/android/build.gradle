@@ -25,6 +25,11 @@ rootProject.allprojects {
         mavenCentral()
         maven {
             url 'https://maven.pkg.github.com/facebook/meta-wearables-dat-android'
+            // GitHub Packages requires authentication even for public
+            // artifacts. Never hardcode a token here — this file is committed.
+            // Supply credentials via ~/.gradle/gradle.properties
+            // (gpr.user / gpr.token) or the GITHUB_ACTOR / GITHUB_TOKEN
+            // environment variables.
             credentials {
                 username = 'CAPJITESH'
                 password = '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'

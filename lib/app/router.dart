@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../features/download_llm_model/screens/download_llm_screen.dart';
 import '../features/glasses_voice/screens/glasses_voice_screen.dart';
 import '../features/home/screens/home_screen.dart';
+import '../features/memories/screens/memories_screen.dart';
 
 class AppRouter {
   static Route<dynamic> generateRoute(RouteSettings settings) {
@@ -13,6 +14,8 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => const DownloadLlmScreen());
       case '/glasses':
         return MaterialPageRoute(builder: (_) => const GlassesVoiceScreen());
+      case '/memories':
+        return MaterialPageRoute(builder: (_) => const MemoriesScreen());
       default:
         return MaterialPageRoute(builder: (_) => const DownloadLlmScreen());
     }

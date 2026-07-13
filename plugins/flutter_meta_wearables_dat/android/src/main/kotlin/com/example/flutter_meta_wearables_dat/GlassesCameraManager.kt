@@ -13,6 +13,7 @@ import com.meta.wearable.dat.core.Wearables
 import com.meta.wearable.dat.core.selectors.AutoDeviceSelector
 import com.meta.wearable.dat.core.session.DeviceSession
 import com.meta.wearable.dat.core.session.DeviceSessionState
+import android.util.Log
 import java.io.ByteArrayOutputStream
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -36,6 +37,10 @@ enum class CameraConnectionState { IDLE, CONNECTING, CONNECTED, STREAMING, ERROR
  * paired/connected devices via [AutoDeviceSelector].
  */
 class GlassesCameraManager(private val context: Context) {
+    companion object {
+        private const val TAG = "GlassesCameraManager"
+    }
+
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
     private var initialized = false
@@ -51,12 +56,20 @@ class GlassesCameraManager(private val context: Context) {
     var onVideoFrame: ((VideoFrame) -> Unit)? = null
 
     fun connect(): Boolean {
+        Log.d(TAG, "connect() called, initialized=$initialized")
         if (!initialized) {
             val initOk = Wearables.initialize(context).fold(
-                onSuccess = { true },
-                onFailure = { _, _ -> false },
+                onSuccess = {
+                    Log.d(TAG, "Wearables.initialize() succeeded")
+                    true
+                },
+                onFailure = { error, _ ->
+                    Log.e(TAG, "Wearables.initialize() FAILED: $error")
+                    false
+                },
             )
             if (!initOk) {
+                Log.e(TAG, "connect() aborting — SDK init failed")
                 _connectionState.value = CameraConnectionState.ERROR
                 return false
             }
@@ -64,20 +77,30 @@ class GlassesCameraManager(private val context: Context) {
         }
 
         _connectionState.value = CameraConnectionState.CONNECTING
+        Log.d(TAG, "Creating session with AutoDeviceSelector...")
         val newSession = Wearables.createSession(AutoDeviceSelector()).fold(
-            onSuccess = { it },
-            onFailure = { _, _ -> null },
+            onSuccess = {
+                Log.d(TAG, "createSession() succeeded: $it")
+                it
+            },
+            onFailure = { error, _ ->
+                Log.e(TAG, "createSession() FAILED: $error")
+                null
+            },
         )
         if (newSession == null) {
+            Log.e(TAG, "connect() aborting — no session (no paired device?)")
             _connectionState.value = CameraConnectionState.ERROR
             return false
         }
         session = newSession
+        Log.d(TAG, "Starting session...")
         newSession.start()
 
         sessionWatchJob?.cancel()
         sessionWatchJob = newSession.state
             .onEach { sessionState ->
+                Log.d(TAG, "Session state changed: $sessionState")
                 _connectionState.value = when (sessionState) {
                     DeviceSessionState.STARTED ->
                         if (stream != null) CameraConnectionState.STREAMING else CameraConnectionState.CONNECTED
@@ -87,7 +110,10 @@ class GlassesCameraManager(private val context: Context) {
             }
             .launchIn(scope)
         newSession.errors
-            .onEach { _connectionState.value = CameraConnectionState.ERROR }
+            .onEach { error ->
+                Log.e(TAG, "Session error: $error")
+                _connectionState.value = CameraConnectionState.ERROR
+            }
             .launchIn(scope)
         return true
     }

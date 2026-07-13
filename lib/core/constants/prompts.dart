@@ -53,6 +53,12 @@ class AiPrompts {
     if (schema.containsKey('item')) buf.writeln('"my X"→"X".');
     if (schema.containsKey('duration_seconds')) buf.writeln('Duration in seconds.');
     if (schema.containsKey('days')) buf.writeln('Days capitalized.');
+    if (schema.containsKey('topic')) {
+      buf.writeln('topic=short label only, strip "my"/"the". content=everything after ":" verbatim.');
+    }
+    if (schema.containsKey('query') || schema.containsKey('place_hint') || schema.containsKey('target')) {
+      buf.writeln('Copy the user\'s wording; null if not stated.');
+    }
 
     buf.write('JSON only.');
     return buf.toString();

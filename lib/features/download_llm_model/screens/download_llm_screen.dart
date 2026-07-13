@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../app/theme.dart';
 import '../data/llm_download_repository.dart';
 import '../models/llm_model.dart';
 import '../widgets/download_progress_widget.dart';
@@ -136,10 +137,7 @@ class _DownloadLlmScreenState extends State<DownloadLlmScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Download LLM Model'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('On-device Model')),
       body: ListenableBuilder(
         listenable: _notifier,
         builder: (context, _) {
@@ -154,7 +152,11 @@ class _DownloadLlmScreenState extends State<DownloadLlmScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                  Icon(
+                    Icons.error_outline,
+                    size: 48,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     _notifier.error ?? 'An error occurred',
@@ -162,7 +164,7 @@ class _DownloadLlmScreenState extends State<DownloadLlmScreen> {
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 24),
-                  ElevatedButton(
+                  FilledButton(
                     onPressed: _notifier.init,
                     child: const Text('Retry'),
                   ),
@@ -180,10 +182,11 @@ class _DownloadLlmScreenState extends State<DownloadLlmScreen> {
               children: [
                 const SizedBox(height: 24),
                 Container(
+                  width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(8),
+                    color: Theme.of(context).colorScheme.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(AppTheme.radius),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -209,10 +212,12 @@ class _DownloadLlmScreenState extends State<DownloadLlmScreen> {
                 if (model != null && model.isDownloaded)
                   Column(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.check_circle,
                         size: 48,
-                        color: Colors.green,
+                        color: Theme.of(context)
+                            .extension<PhaseColors>()!
+                            .speaking,
                       ),
                       const SizedBox(height: 16),
                       Text(
@@ -223,21 +228,22 @@ class _DownloadLlmScreenState extends State<DownloadLlmScreen> {
                       Row(
                         children: [
                           Expanded(
-                            child: ElevatedButton(
+                            child: OutlinedButton(
                               onPressed: _notifier.deleteModel,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red,
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor:
+                                    Theme.of(context).colorScheme.error,
                               ),
-                              child: const Text('Delete Model'),
+                              child: const Text('Delete model'),
                             ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
-                            child: ElevatedButton(
+                            child: FilledButton(
                               onPressed: () {
                                 Navigator.of(context).pushNamedAndRemoveUntil('/glasses', (route) => false);
                               },
-                              child: const Text('Go to Glasses'),
+                              child: const Text('Go to glasses'),
                             ),
                           ),
                         ],
@@ -255,15 +261,12 @@ class _DownloadLlmScreenState extends State<DownloadLlmScreen> {
                       ),
                       const SizedBox(height: 32),
                       if (progress.status == DownloadStatus.downloading)
-                        ElevatedButton(
+                        OutlinedButton(
                           onPressed: () {
                             _notifier.cancelDownload();
                             _notifier.init();
                           },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.orange,
-                          ),
-                          child: const Text('Cancel Download'),
+                          child: const Text('Cancel download'),
                         ),
                       if (progress.status == DownloadStatus.paused)
                         Column(
@@ -273,9 +276,9 @@ class _DownloadLlmScreenState extends State<DownloadLlmScreen> {
                               style: Theme.of(context).textTheme.bodyMedium,
                             ),
                             const SizedBox(height: 16),
-                            ElevatedButton(
+                            FilledButton(
                               onPressed: _notifier.startDownload,
-                              child: const Text('Resume Download'),
+                              child: const Text('Resume download'),
                             ),
                           ],
                         ),
@@ -285,11 +288,11 @@ class _DownloadLlmScreenState extends State<DownloadLlmScreen> {
                             Text(
                               'Download failed',
                               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: Colors.red,
+                                    color: Theme.of(context).colorScheme.error,
                                   ),
                             ),
                             const SizedBox(height: 16),
-                            ElevatedButton(
+                            FilledButton(
                               onPressed: _notifier.startDownload,
                               child: const Text('Retry'),
                             ),
@@ -303,22 +306,24 @@ class _DownloadLlmScreenState extends State<DownloadLlmScreen> {
                       Icon(
                         Icons.download,
                         size: 48,
-                        color: Colors.blue[600],
+                        color: Theme.of(context).colorScheme.primary,
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'Ready to Download',
+                        'Ready to download',
                         style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Downloads once, then everything runs on-device.',
+                        style: Theme.of(context).textTheme.bodySmall,
                       ),
                       const SizedBox(height: 32),
                       SizedBox(
                         width: double.infinity,
-                        child: ElevatedButton(
+                        child: FilledButton(
                           onPressed: _notifier.startDownload,
-                          child: const Padding(
-                            padding: EdgeInsets.all(12),
-                            child: Text('Download Model'),
-                          ),
+                          child: const Text('Download model'),
                         ),
                       ),
                     ],

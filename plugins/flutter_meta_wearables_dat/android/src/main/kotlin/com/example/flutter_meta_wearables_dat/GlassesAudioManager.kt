@@ -2,6 +2,7 @@ package com.example.flutter_meta_wearables_dat
 
 import android.Manifest
 import android.content.Context
+import android.util.Log
 import android.content.pm.PackageManager
 import android.media.AudioAttributes
 import android.media.AudioDeviceInfo
@@ -59,6 +60,7 @@ class GlassesAudioManager(private val context: Context) {
     var onAudioChunk: ((ByteArray, Int, Long) -> Unit)? = null
 
     companion object {
+        private const val TAG = "GlassesAudioManager"
         const val HFP_SAMPLE_RATE = 8000 // fixed by the Bluetooth HFP/SCO profile
         private const val CHUNK_MS = 40 // ~emit interval; tune for your STT pipeline
         private const val ROUTE_SETTLE_DELAY_MS = 1500L
@@ -88,16 +90,35 @@ class GlassesAudioManager(private val context: Context) {
      */
     @Suppress("MissingPermission")
     fun startListening(): Boolean {
-        if (!hasAudioPermissions()) return false
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return false // setCommunicationDevice needs API 31+
+        Log.d(TAG, "startListening() called")
+        if (!hasAudioPermissions()) {
+            Log.e(TAG, "startListening() — MISSING AUDIO PERMISSIONS")
+            return false
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            Log.e(TAG, "startListening() — API < 31 (SDK_INT=${Build.VERSION.SDK_INT})")
+            return false
+        }
 
-        val scoDevice = audioManager.availableCommunicationDevices.firstOrNull {
+        val allDevices = audioManager.availableCommunicationDevices
+        Log.d(TAG, "Available communication devices: ${allDevices.map { "${it.productName}(type=${it.type})" }}")
+
+        val scoDevice = allDevices.firstOrNull {
             it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO
-        } ?: return false
+        }
+        if (scoDevice == null) {
+            Log.e(TAG, "startListening() — NO SCO DEVICE FOUND among ${allDevices.size} devices")
+            return false
+        }
+        Log.d(TAG, "Found SCO device: ${scoDevice.productName}")
 
         audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
         val routed = audioManager.setCommunicationDevice(scoDevice)
-        if (!routed) return false
+        if (!routed) {
+            Log.e(TAG, "startListening() — setCommunicationDevice FAILED")
+            return false
+        }
+        Log.d(TAG, "SCO route requested, waiting ${ROUTE_SETTLE_DELAY_MS}ms to settle...")
 
         _state.value = AudioSessionState(AudioMode.LISTENING, AudioRoute.HFP_MIC_SPEAKER, false)
 
@@ -107,6 +128,7 @@ class GlassesAudioManager(private val context: Context) {
             AudioFormat.ENCODING_PCM_16BIT,
         )
         val bufSize = maxOf(minBuf, HFP_SAMPLE_RATE * 2 * CHUNK_MS / 1000)
+        Log.d(TAG, "AudioRecord bufSize=$bufSize (minBuf=$minBuf)")
         audioRecord = AudioRecord(
             MediaRecorder.AudioSource.VOICE_COMMUNICATION,
             HFP_SAMPLE_RATE,
@@ -115,27 +137,40 @@ class GlassesAudioManager(private val context: Context) {
             bufSize,
         )
         if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
+            Log.e(TAG, "AudioRecord NOT INITIALIZED (state=${audioRecord?.state})")
             stopListening()
             return false
         }
         audioRecord?.startRecording()
+        Log.d(TAG, "AudioRecord started recording")
 
-        // Give the BT SCO route ~1.5-2s to settle before trusting it.
+        var chunkCount = 0
         captureJob = scope.launch {
             delay(ROUTE_SETTLE_DELAY_MS)
-            val settled = audioManager.communicationDevice?.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+            val commDevice = audioManager.communicationDevice
+            val settled = commDevice?.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+            Log.d(TAG, "Route settle check: device=${commDevice?.productName}(type=${commDevice?.type}), settled=$settled")
             _state.value = AudioSessionState(AudioMode.LISTENING, AudioRoute.HFP_MIC_SPEAKER, settled)
             if (!settled) {
+                Log.e(TAG, "SCO route DID NOT SETTLE — aborting capture")
                 stopListening()
                 return@launch
             }
+            Log.d(TAG, "SCO route settled, entering capture loop")
             val buffer = ByteArray(bufSize)
             while (isActive) {
                 val read = audioRecord?.read(buffer, 0, buffer.size) ?: -1
                 if (read > 0) {
+                    chunkCount++
+                    if (chunkCount <= 5 || chunkCount % 50 == 0) {
+                        Log.d(TAG, "Audio chunk #$chunkCount: $read bytes")
+                    }
                     onAudioChunk?.invoke(buffer.copyOf(read), HFP_SAMPLE_RATE, System.currentTimeMillis())
+                } else {
+                    Log.w(TAG, "AudioRecord.read returned $read")
                 }
             }
+            Log.d(TAG, "Capture loop ended, total chunks=$chunkCount")
         }
         return true
     }
@@ -164,6 +199,9 @@ class GlassesAudioManager(private val context: Context) {
      * they're mutually exclusive.
      */
     suspend fun speak(pcm: ByteArray, sampleRateHz: Int) = withContext(Dispatchers.IO) {
+        if (pcm.isEmpty()) {
+            return@withContext
+        }
         if (_state.value.mode == AudioMode.LISTENING) {
             stopListening()
         }
@@ -198,6 +236,12 @@ class GlassesAudioManager(private val context: Context) {
             it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
         }
         _state.value = AudioSessionState(AudioMode.SPEAKING, AudioRoute.A2DP_SPEAKER, hasA2dp)
+        if (audioTrack?.state != AudioTrack.STATE_INITIALIZED) {
+            audioTrack?.release()
+            audioTrack = null
+            _state.value = AudioSessionState(AudioMode.IDLE, AudioRoute.NONE, false)
+            return@withContext
+        }
         audioTrack?.play()
 
         val durationMs = (pcm.size / 2.0 / sampleRateHz * 1000).toLong() // 16-bit mono

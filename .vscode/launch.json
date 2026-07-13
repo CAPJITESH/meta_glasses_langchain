@@ -1,0 +1,45 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "qualcom_hacks",
+            "request": "launch",
+            "type": "dart"
+        },
+        {
+            "name": "qualcom_hacks (profile mode)",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "profile"
+        },
+        {
+            "name": "qualcom_hacks (release mode)",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release"
+        },
+        {
+            "name": "flutter_meta_wearables_dat",
+            "cwd": "plugins/flutter_meta_wearables_dat",
+            "request": "launch",
+            "type": "dart"
+        },
+        {
+            "name": "flutter_meta_wearables_dat (profile mode)",
+            "cwd": "plugins/flutter_meta_wearables_dat",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "profile"
+        },
+        {
+            "name": "flutter_meta_wearables_dat (release mode)",
+            "cwd": "plugins/flutter_meta_wearables_dat",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release"
+        }
+    ]
+}
