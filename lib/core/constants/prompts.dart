@@ -40,7 +40,7 @@ class AiPrompts {
 
     if (hasTime) {
       buf.writeln(
-        'time={type:absolute|relative|unknown,clock_time:HH:MM 24h,date:yyyy-MM-dd,amount:num,unit:s/m/h} null if N/A',
+        'time={type:absolute|relative|unknown,clock_time:HH:MM 24h,date:yyyy-MM-dd,amount:num,unit:seconds|minutes|hours} null if N/A',
       );
       buf.writeln(
         'today/tomorrow→yyyy-MM-dd via Current date. Relative→amount+unit only. 24h: 5pm→17:00.',
@@ -53,6 +53,16 @@ class AiPrompts {
     if (schema.containsKey('item')) buf.writeln('"my X"→"X".');
     if (schema.containsKey('duration_seconds')) buf.writeln('Duration in seconds.');
     if (schema.containsKey('days')) buf.writeln('Days capitalized.');
+    if (schema.containsKey('topic')) {
+      buf.write('topic=short label only, strip "my"/"the".');
+      if (schema.containsKey('content')) {
+        buf.write(' content=the details/items to remember (everything after the topic name).');
+      }
+      buf.writeln();
+    }
+    if (schema.containsKey('query') || schema.containsKey('place_hint') || schema.containsKey('target')) {
+      buf.writeln('Copy the user\'s wording; null if not stated.');
+    }
 
     buf.write('JSON only.');
     return buf.toString();
@@ -100,6 +110,22 @@ Rules:
 - Never mention JSON, "the data", "storage", "stored_data", or how you
   retrieved this information -- speak as if you simply remember it.
 - Do not add any items, caveats, or suggestions beyond what is in stored_data.
+''';
+
+  static const String glassesReplyPolishPrompt = '''
+You rewrite assistant replies for a voice interface on smart glasses.
+
+You will be given a JSON object with two fields: "user_said" (what the user
+asked for) and "reply" (a correct but robotic draft reply).
+
+Rules:
+- Rewrite "reply" as ONE short, natural spoken sentence.
+- Keep every fact in the draft (task names, times, item counts, list names)
+  exactly as given. Never change a time or a number.
+- Never add new information, questions, offers, or caveats.
+- No emoji, no markdown, no quotes around the sentence.
+- If the draft is already natural, return it unchanged.
+- Output only the sentence.
 ''';
 
   static const String meetingSummaryPrompt = '''

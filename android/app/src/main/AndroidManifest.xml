@@ -1,4 +1,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Required for the one-time on-device model downloads (the LLM GGUF and
+         the whisper.cpp ggml STT model). Declared in the main manifest so it
+         applies to release builds too, not just debug/profile. Both models run
+         fully offline after the first fetch. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Required by Meta Wearables DAT to scan/connect bonded BT devices (Android 12+) -->
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"/>
+    <uses-permission android:name="android.permission.BLUETOOTH"/>
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <application
         android:label="qualcom_hacks"
         android:name="${applicationName}"
@@ -30,6 +40,15 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+            
+            <meta-data android:name="com.meta.wearable.mwdat.APPLICATION_ID" android:value="1320867373534745" />
+            
+            <meta-data android:name="com.meta.wearable.mwdat.CLIENT_TOKEN" android:value="AR|1320867373534745|2da607d7f7591e81249e18a51ed09062" />
+
+            <meta-data
+                android:name="com.meta.wearable.mwdat.ANALYTICS_OPT_OUT"
+                android:value="true" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

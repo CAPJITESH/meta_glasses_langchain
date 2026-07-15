@@ -49,6 +49,42 @@ class LocalDataStore {
     return bucket[_key(reference)];
   }
 
+  /// Forgiving lookup across BOTH buckets: exact key first, then the best
+  /// token-overlap match, so "swimming" still resolves the stored
+  /// "swimming checklist". Returns null when nothing overlaps at all.
+  ({String queryType, String name, List<String> items})? lookupFuzzy(
+    String reference,
+  ) {
+    final key = _key(reference);
+    if (_lists.containsKey(key)) {
+      return (queryType: 'list', name: key, items: _lists[key]!);
+    }
+    if (_preferences.containsKey(key)) {
+      return (queryType: 'preference', name: key, items: _preferences[key]!);
+    }
+
+    Set<String> tokens(String s) => s
+        .toLowerCase()
+        .split(RegExp(r'[^a-z0-9]+'))
+        .where((t) => t.isNotEmpty)
+        .toSet();
+    final refTokens = tokens(reference);
+    if (refTokens.isEmpty) return null;
+
+    ({String queryType, String name, List<String> items})? best;
+    var bestOverlap = 0;
+    for (final (type, map) in [('list', _lists), ('preference', _preferences)]) {
+      for (final entry in map.entries) {
+        final overlap = refTokens.intersection(tokens(entry.key)).length;
+        if (overlap > bestOverlap) {
+          bestOverlap = overlap;
+          best = (queryType: type, name: entry.key, items: entry.value);
+        }
+      }
+    }
+    return best;
+  }
+
   void startMeeting(String? name) {
     meetingActive = true;
     meetingName = name;

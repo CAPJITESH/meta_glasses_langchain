@@ -16,6 +16,7 @@ library;
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:fllama/fllama.dart';
 
@@ -41,11 +42,56 @@ class AiService {
   AiService._internal();
   static final AiService instance = AiService._internal();
 
+  /// Single context size for the interactive path. All hot-path prompts
+  /// (intent ~270 tokens, extraction ~450, grounded answer ~480) fit within
+  /// 512 tokens. fllama caches a native `server_context` per (modelPath +
+  /// params) and n_ctx is part of the match key, so keeping one size avoids
+  /// context thrashing. Only [summarizeMeetingTranscript] opts into 4096.
+  static const int interactiveContextSize = 512;
+
+  /// GPU offload requested on every call. NOTE (Android): fllama's CMake only
+  /// compiles a GPU backend for Apple (Metal) and Windows (Vulkan); the
+  /// Android build is CPU-only, so this value is silently ignored there and
+  /// inference runs on CPU. Left at a high value so it is honored the moment a
+  /// GPU-enabled Android build of fllama is available — see the Section 0 audit.
+  static const int _numGpuLayers = 99;
+
+  /// CPU inference threads. fllama's OpenAiRequest defaults numThreads to 2,
+  /// which leaves most of a modern phone's performance cores idle — on
+  /// Android (where inference is currently CPU-only, see [_numGpuLayers])
+  /// that default is the single largest throughput limiter. llama.cpp scales
+  /// well up to the physical performance-core count and then degrades once
+  /// threads spill onto efficiency cores, so cap below the total core count
+  /// rather than using all of them.
+  static final int _numThreads =
+      Platform.numberOfProcessors <= 4 ? 2 : (Platform.numberOfProcessors - 2).clamp(2, 8);
+
   String? _modelPath;
   bool get isReady => _modelPath != null;
 
   Future<void> init(String modelPath) async {
     _modelPath = modelPath;
+  }
+
+  Future<void>? _warmUpFuture;
+
+  /// Runs one tiny inference so fllama loads the weights and allocates the KV
+  /// cache NOW rather than on the first real user request (which otherwise
+  /// pays the full ~30s model load). Uses [interactiveContextSize] and the
+  /// same thread count as the hot path so the warmed context is the exact one
+  /// later calls reuse. Idempotent — concurrent callers share one warm-up,
+  /// and a failed warm-up resets so it can be retried.
+  Future<void> warmUp() {
+    _ensureReady();
+    return _warmUpFuture ??= rawChat(
+      'ok',
+      maxTokens: 2,
+      temperature: 0.0,
+      systemPrompt: 'Reply with: ok',
+    ).then<void>((_) {}).catchError((Object e) {
+      _warmUpFuture = null;
+      throw e;
+    });
   }
 
   void _ensureReady() {
@@ -57,12 +103,19 @@ class AiService {
   }
 
   /// Low-level chat call.
+  ///
+  /// [onDelta], when supplied, is invoked with the freshly-generated text on
+  /// each token callback (the incremental slice since the previous callback,
+  /// not the cumulative buffer) so callers can stream output to the UI or a
+  /// streaming TTS as it is produced. The returned future still completes with
+  /// the full final response, so non-streaming callers are unaffected.
   Future<String> rawChat(
     String userMessage, {
     double temperature = 0.1,
     int maxTokens = 256,
     String? systemPrompt,
-    int contextSize = 1024,
+    int contextSize = interactiveContextSize,
+    void Function(String delta)? onDelta,
   }) async {
     _ensureReady();
     final completer = Completer<String>();
@@ -72,7 +125,7 @@ class AiService {
         Message(Role.system, systemPrompt ?? AiPrompts.systemPrompt),
         Message(Role.user, userMessage),
       ],
-      numGpuLayers: 99,
+      numGpuLayers: _numGpuLayers,
       modelPath: _modelPath!,
       frequencyPenalty: 0.0,
       presencePenalty: 1.1,
@@ -81,7 +134,39 @@ class AiService {
       temperature: temperature,
     );
 
-    fllamaChat(request, (response, chunk, done) {
+    // Built by hand instead of going through fllamaChat() because that
+    // wrapper drops the thread count on the floor: OpenAiRequest has no
+    // numThreads field, and fllamaChat leaves FllamaInferenceRequest at its
+    // default of 2 threads. This mirrors fllamaChat's construction exactly
+    // (empty input/eosToken; the chat itself travels in
+    // openAiRequestJsonString via llama.cpp's OpenAI server path) with
+    // [_numThreads] applied. Keep numThreads identical across calls — like
+    // n_ctx, changing per-call params can invalidate fllama's cached context.
+    final inferenceRequest = FllamaInferenceRequest(
+      contextSize: contextSize,
+      input: '',
+      maxTokens: maxTokens,
+      modelPath: _modelPath!,
+      numGpuLayers: _numGpuLayers,
+      numThreads: _numThreads,
+      penaltyFrequency: 0.0,
+      penaltyRepeat: 1.1,
+      temperature: temperature,
+      topP: 1.0,
+      grammar: '',
+      eosToken: '',
+      openAiRequestJsonString: request.toJsonString(),
+    );
+
+    // fllama's callback delivers `response` as the CUMULATIVE text so far on
+    // every token (not just the newest slice), so diff against what we have
+    // already emitted to hand the caller only the new text.
+    var emitted = 0;
+    fllamaInference(inferenceRequest, (response, _, done) {
+      if (onDelta != null && response.length > emitted) {
+        onDelta(response.substring(emitted));
+        emitted = response.length;
+      }
       if (done && !completer.isCompleted) {
         completer.complete(response);
       }
@@ -110,7 +195,7 @@ class AiService {
       maxTokens: 20,
       temperature: 0.0,
       systemPrompt: AiPrompts.intentClassificationPrompt,
-      contextSize: 512,
+      contextSize: interactiveContextSize,
     ))
         .trim();
 
@@ -153,7 +238,7 @@ class AiService {
         matchedIntent,
         feature.schema,
       ),
-      contextSize: 512,
+      contextSize: interactiveContextSize,
     ))
         .trim();
 
@@ -222,7 +307,16 @@ class AiService {
   }
 
   /// Grounded Q&A against already-retrieved stored data.
-  Future<String> groundedAnswer(String question, dynamic storedData) async {
+  ///
+  /// [onDelta] streams the answer incrementally as it is generated (see
+  /// [rawChat]); the returned future still resolves with the full answer.
+  /// Uses [interactiveContextSize] so it shares fllama's cached context with
+  /// [extract] instead of forcing a reload.
+  Future<String> groundedAnswer(
+    String question,
+    dynamic storedData, {
+    void Function(String delta)? onDelta,
+  }) async {
     _ensureReady();
     final payload = jsonEncode({
       'question': question,
@@ -233,8 +327,38 @@ class AiService {
       temperature: 0.0,
       maxTokens: 128,
       systemPrompt: AiPrompts.groundedAnswerPrompt,
+      contextSize: interactiveContextSize,
+      onDelta: onDelta,
     );
     return result.trim();
+  }
+
+  /// Rephrases a deterministic template reply into one natural spoken
+  /// sentence for the glasses. The template stays the source of truth for
+  /// facts; the model only rewords it. Falls back to [draft] verbatim on any
+  /// error, empty output, or a suspiciously long rewrite, so this can never
+  /// make a turn fail — only sound better.
+  Future<String> polishGlassesReply(String transcript, String draft) async {
+    _ensureReady();
+    try {
+      final result = await rawChat(
+        jsonEncode({'user_said': transcript, 'reply': draft}),
+        temperature: 0.2,
+        maxTokens: 60,
+        systemPrompt: AiPrompts.glassesReplyPolishPrompt,
+        contextSize: interactiveContextSize,
+      );
+      var cleaned = result.trim();
+      if (cleaned.startsWith('"') && cleaned.endsWith('"') && cleaned.length > 1) {
+        cleaned = cleaned.substring(1, cleaned.length - 1).trim();
+      }
+      if (cleaned.isEmpty || cleaned.length > draft.length * 3 + 40) {
+        return draft;
+      }
+      return cleaned;
+    } catch (_) {
+      return draft;
+    }
   }
 
   /// Summarize a meeting transcript.

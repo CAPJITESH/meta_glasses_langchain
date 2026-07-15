@@ -1,0 +1,10 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+  package="com.example.flutter_meta_wearables_dat">
+
+  <!-- Mic capture (HFP) and speaker playback (A2DP) go through standard Android
+       Bluetooth profiles via AudioManager, not through the DAT camera SDK, so
+       these are the only permissions this plugin needs to declare itself. -->
+  <uses-permission android:name="android.permission.RECORD_AUDIO" />
+  <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+  <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+</manifest>

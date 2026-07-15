@@ -1,6 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:qualcom_hacks/features/download_llm_model/screens/download_llm_screen.dart';
+import 'package:qualcom_hacks/features/glasses_voice/screens/glasses_voice_screen.dart';
 import 'app/router.dart';
+import 'app/theme.dart';
 import 'core/services/storage_service.dart';
 import 'features/download_llm_model/data/llm_download_repository.dart';
 
@@ -34,10 +37,12 @@ class _MyAppState extends State<MyApp> {
 
       if (savedModel != null && savedModel.isDownloaded) {
         // Verify the file actually exists at the stored path
-        if (savedModel.localPath != null && await File(savedModel.localPath!).exists()) {
-          return '/home';
+        if (savedModel.localPath != null &&
+            await File(savedModel.localPath!).exists()) {
+          return '/glasses';
         }
       }
+
       return '/download-model';
     } catch (e) {
       return '/download-model';
@@ -49,18 +54,23 @@ class _MyAppState extends State<MyApp> {
     return FutureBuilder<String>(
       future: _initialRouteFuture,
       builder: (context, snapshot) {
-        String initialRoute = '/home';
-        if (snapshot.hasData) {
-          initialRoute = snapshot.data ?? '/home';
+        if (snapshot.connectionState != ConnectionState.done) {
+          return MaterialApp(
+            title: 'Glasses Assistant',
+            theme: AppTheme.dark(),
+            home: const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            ),
+          );
         }
 
         return MaterialApp(
-          title: 'Flutter Demo',
-          theme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-          ),
+          title: 'Glasses Assistant',
+          theme: AppTheme.dark(),
           onGenerateRoute: AppRouter.generateRoute,
-          initialRoute: initialRoute,
+          home: snapshot.data == '/glasses'
+              ? const GlassesVoiceScreen()
+              : const DownloadLlmScreen(),
         );
       },
     );

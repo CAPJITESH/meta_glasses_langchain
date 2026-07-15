@@ -103,5 +103,47 @@ class AiManifests {
       description: 'Summarize a meeting transcript',
       schema: {'meeting_name': 'string or null'},
     ),
+
+    // -------------------------------------------------------------------------
+    // Personalization showcase (Section 6): remember/recall arbitrary content
+    // under a user-named topic. "store broadly, retrieve narrowly" — the write
+    // side captures topic + content; the read side captures only the topic and
+    // the executor injects just the single matched entry into groundedAnswer().
+    // -------------------------------------------------------------------------
+    'remember_topic_v1': FeatureManifest(
+      description:
+          "Remember/save freeform content under a named topic "
+          "('remember my swimming checklist: goggles, cap, towel')",
+      schema: {'topic': 'string', 'content': 'string'},
+    ),
+    'recall_topic_v1': FeatureManifest(
+      description:
+          "Recall previously-saved content by topic "
+          "('what's on my swimming checklist?')",
+      schema: {'topic': 'string'},
+    ),
+
+    // -------------------------------------------------------------------------
+    // Section 5 extensibility proof — new capabilities added as manifest
+    // entries + a schema only. None of these required any change to
+    // AiService.extract(), ParameterNormalizer, or the model download/load
+    // layer; each is handled by a small executor keyed on its feature id.
+    // -------------------------------------------------------------------------
+    'rag_query_v1': FeatureManifest(
+      description:
+          'Answer an open question from the on-device knowledge base '
+          '(semantic retrieval over stored documents)',
+      schema: {'query': 'string'},
+    ),
+    'ocr_read_text_v1': FeatureManifest(
+      description:
+          'Read text visible in the current camera frame '
+          "('what does this sign say?')",
+      schema: {'target': 'string or null'},
+    ),
+    'query_location_v1': FeatureManifest(
+      description: "Answer where the user is now, or about a nearby place",
+      schema: {'place_hint': 'string or null'},
+    ),
   };
 }
