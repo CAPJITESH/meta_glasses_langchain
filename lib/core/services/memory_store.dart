@@ -97,14 +97,31 @@ class MemoryStore {
   /// Exact, deterministic topic lookup. Returns null on miss.
   MemoryEntry? recallExact(String topic) => _entries[_normalizeTopic(topic)];
 
-  /// Narrow retrieval for a topic: exact match first, then a fuzzy fallback so
-  /// close phrasings ("my swim list" vs "swimming checklist") still resolve.
-  /// Returns the single best entry, or null if nothing clears the fuzzy floor.
+  /// Narrow retrieval for a topic: exact match first, then a substring
+  /// fallback (ported from memory_store.py's recall — catches "swim" ~
+  /// "swimming" prefix/substring cases word-overlap alone would miss), then
+  /// a word-overlap fallback for close phrasings ("my swim list" vs
+  /// "swimming checklist"). Returns the single best entry, or null if
+  /// nothing clears the fuzzy floor.
   MemoryEntry? recall(String topic) {
     final exact = recallExact(topic);
     if (exact != null) return exact;
+    final substringMatch = _recallSubstring(topic);
+    if (substringMatch != null) return substringMatch;
     final ranked = retrieveRelevant(topic, topK: 1);
     return ranked.isEmpty ? null : ranked.first;
+  }
+
+  /// First-match-wins substring fuzzy: query is a substring of a stored
+  /// topic key or vice versa. Iterates in insertion order to mirror
+  /// Python's un-scored linear dict scan.
+  MemoryEntry? _recallSubstring(String topic) {
+    final key = _normalizeTopic(topic);
+    if (key.isEmpty) return null;
+    for (final entry in _entries.entries) {
+      if (key.contains(entry.key) || entry.key.contains(key)) return entry.value;
+    }
+    return null;
   }
 
   /// Top-K relevance retrieval, NEVER top-all (Section 6 scaling rule #2).

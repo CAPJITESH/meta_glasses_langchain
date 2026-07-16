@@ -21,6 +21,11 @@ import '../services/memory_store.dart';
 abstract class FeatureExecutor {
   String get featureId;
 
+  /// True when [execute] already produced a natural, LLM-phrased reply
+  /// (e.g. via [AiService.groundedAnswer]) — the caller should skip the
+  /// redundant polish pass in that case. Defaults to false.
+  bool get alreadyNatural => false;
+
   /// [result] is the extraction for this turn; [transcript] is the raw user
   /// utterance. Returns the natural-language reply to speak back.
   Future<String> execute(ExtractionResult result, {required String transcript});
@@ -60,6 +65,9 @@ class RememberTopicExecutor implements FeatureExecutor {
   String get featureId => 'remember_topic_v1';
 
   @override
+  bool get alreadyNatural => false;
+
+  @override
   Future<String> execute(
     ExtractionResult result, {
     required String transcript,
@@ -87,6 +95,9 @@ class RecallTopicExecutor implements FeatureExecutor {
 
   @override
   String get featureId => 'recall_topic_v1';
+
+  @override
+  bool get alreadyNatural => true;
 
   @override
   Future<String> execute(
@@ -145,6 +156,9 @@ class RecallStoredInfoExecutor implements FeatureExecutor {
   String get featureId => 'recall_stored_info_v1';
 
   @override
+  bool get alreadyNatural => true;
+
+  @override
   Future<String> execute(
     ExtractionResult result, {
     required String transcript,
@@ -188,6 +202,9 @@ class RagQueryExecutor implements FeatureExecutor {
   String get featureId => 'rag_query_v1';
 
   @override
+  bool get alreadyNatural => false;
+
+  @override
   Future<String> execute(
     ExtractionResult result, {
     required String transcript,
@@ -204,6 +221,9 @@ class OcrReadTextExecutor implements FeatureExecutor {
   String get featureId => 'ocr_read_text_v1';
 
   @override
+  bool get alreadyNatural => false;
+
+  @override
   Future<String> execute(
     ExtractionResult result, {
     required String transcript,
@@ -218,6 +238,9 @@ class OcrReadTextExecutor implements FeatureExecutor {
 class QueryLocationExecutor implements FeatureExecutor {
   @override
   String get featureId => 'query_location_v1';
+
+  @override
+  bool get alreadyNatural => false;
 
   @override
   Future<String> execute(

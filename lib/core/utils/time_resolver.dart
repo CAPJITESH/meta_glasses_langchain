@@ -32,7 +32,18 @@ class TimeResolver {
       if (amount == null || !['seconds', 'minutes', 'hours'].contains(unit)) {
         return const ResolvedTime(null, null);
       }
-      final int amt = amount is int ? amount : (amount as num).toInt();
+      final int amt;
+      if (amount is int) {
+        amt = amount;
+      } else if (amount is num) {
+        amt = amount.toInt();
+      } else if (amount is String) {
+        final parsed = int.tryParse(amount);
+        if (parsed == null) return const ResolvedTime(null, null);
+        amt = parsed;
+      } else {
+        return const ResolvedTime(null, null);
+      }
       Duration delta;
       switch (unit) {
         case 'seconds':
@@ -59,7 +70,11 @@ class TimeResolver {
         return const ResolvedTime(null, null);
       }
 
-      final dateWord = ((timeObj['date'] as String?) ?? 'today').trim().toLowerCase();
+      final rawDate = timeObj['date'] as String?;
+      final dateWord =
+          (rawDate == null || rawDate.isEmpty ? 'today' : rawDate)
+              .trim()
+              .toLowerCase();
       DateTime baseDate = DateTime(nowDt.year, nowDt.month, nowDt.day);
       DateTime targetDate;
 

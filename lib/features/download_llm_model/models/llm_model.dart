@@ -1,11 +1,17 @@
 import 'dart:convert';
 
+enum ModelType {
+  llm,
+  embedding,
+}
+
 class LlmModel {
   final String id;
   final String displayName;
   final String downloadUrl;
   final String fileName;
   final int approxSizeBytes;
+  final ModelType type;
   final String? localPath;
   final bool isDownloaded;
 
@@ -15,6 +21,7 @@ class LlmModel {
     required this.downloadUrl,
     required this.fileName,
     required this.approxSizeBytes,
+    required this.type,
     this.localPath,
     this.isDownloaded = false,
   });
@@ -25,6 +32,7 @@ class LlmModel {
     String? downloadUrl,
     String? fileName,
     int? approxSizeBytes,
+    ModelType? type,
     String? localPath,
     bool? isDownloaded,
   }) {
@@ -34,6 +42,7 @@ class LlmModel {
       downloadUrl: downloadUrl ?? this.downloadUrl,
       fileName: fileName ?? this.fileName,
       approxSizeBytes: approxSizeBytes ?? this.approxSizeBytes,
+      type: type ?? this.type,
       localPath: localPath ?? this.localPath,
       isDownloaded: isDownloaded ?? this.isDownloaded,
     );
@@ -46,6 +55,7 @@ class LlmModel {
       'downloadUrl': downloadUrl,
       'fileName': fileName,
       'approxSizeBytes': approxSizeBytes,
+      'type': type.name,
       'localPath': localPath,
       'isDownloaded': isDownloaded,
     };
@@ -58,6 +68,7 @@ class LlmModel {
       downloadUrl: json['downloadUrl'] as String,
       fileName: json['fileName'] as String,
       approxSizeBytes: json['approxSizeBytes'] as int,
+      type: ModelType.values.byName(json['type'] as String? ?? 'llm'),
       localPath: json['localPath'] as String?,
       isDownloaded: json['isDownloaded'] as bool? ?? false,
     );

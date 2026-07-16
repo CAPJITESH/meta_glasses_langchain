@@ -33,14 +33,18 @@ class _MyAppState extends State<MyApp> {
     try {
       final repository = LlmDownloadRepository();
       await repository.init();
-      final savedModel = await repository.getSavedModel();
+      final savedLlm = await repository.getSavedLlmModel();
+      final savedEmbedding = await repository.getSavedEmbeddingModel();
 
-      if (savedModel != null && savedModel.isDownloaded) {
-        // Verify the file actually exists at the stored path
-        if (savedModel.localPath != null &&
-            await File(savedModel.localPath!).exists()) {
-          return '/glasses';
-        }
+      if (savedLlm != null &&
+          savedLlm.isDownloaded &&
+          savedLlm.localPath != null &&
+          await File(savedLlm.localPath!).exists() &&
+          savedEmbedding != null &&
+          savedEmbedding.isDownloaded &&
+          savedEmbedding.localPath != null &&
+          await File(savedEmbedding.localPath!).exists()) {
+        return '/glasses';
       }
 
       return '/download-model';

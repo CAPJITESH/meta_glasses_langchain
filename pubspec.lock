@@ -140,11 +140,9 @@ packages:
   fllama:
     dependency: "direct main"
     description:
-      path: "."
-      ref: main
-      resolved-ref: "3b1351a957920bf2a0df3709cce1e3a7195c479e"
-      url: "https://github.com/Telosnex/fllama.git"
-    source: git
+      path: "plugins/fllama-patched"
+      relative: true
+    source: path
     version: "0.0.1"
   flutter:
     dependency: "direct main"
@@ -655,4 +653,4 @@ packages:
     version: "3.1.3"
 sdks:
   dart: ">=3.10.0 <4.0.0"
-  flutter: ">=3.38.0"
+  flutter: ">=3.29.0"

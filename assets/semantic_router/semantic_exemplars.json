@@ -1,0 +1,141 @@
+{
+  "_disambiguation_notes": [
+    "Axis 1 - 'remember'-led four-way split (create_list_v1 / save_preference_v1 / remember_topic_v1 / log_item_location_v1):",
+    "  log_item_location_v1: locative frame 'where I put/left/placed X' -> location, strongest syntactic marker.",
+    "  save_preference_v1: preference marker (favourite/preferred/favorite) + category + multiple items.",
+    "  create_list_v1: collection under a name - list-word (list/checklist) and/or multiple items, imperative creation verb, NO preference marker, NO single copula binding.",
+    "  remember_topic_v1: single topic->value binding, usually an is/are copula - 'my X is Y'. One fact, one value.",
+    "Axis 2 - create_list_v1 vs recall_stored_info_v1 (the original misroute axis):",
+    "  create_list_v1: imperative + declares NEW items ('make/create/start a ... list <items>').",
+    "  recall_stored_info_v1: interrogative + NO new items ('what's on my ... list', 'show my ...'). Bare names ('my swimming list') are caught upstream by _preempt_known_data_recall before the router runs.",
+    "Curation warning: 'remember my' is a shared prefix across three intents above, so their embedding centroids are inherently close and the margin threshold is thin there. Keep distinctive frames ('make a checklist...', 'start a packing list...') dominant for create_list_v1 - do not let 'remember my' become its lead form.",
+    "Keys prefixed with '_' are metadata, not intents - semantic_router.py must skip them when building the vector bank."
+  ],
+  "set_reminder_v1": [
+    "Remind me to call mom tomorrow at 5pm",
+    "Remind me after 30 minutes to check the oven",
+    "Remind me later",
+    "give me a nudge to call the vet later",
+    "don't let me forget to call the vet",
+    "remind me about the dentist appointment",
+    "set a reminder for picking up groceries"
+  ],
+  "set_alarm_v1": [
+    "Wake me up at 6:30am every weekday",
+    "wake me up at 7am daily",
+    "alarm for 6:30 every weekday",
+    "set alarm for tomorrow 8am",
+    "set an alarm for 6am",
+    "wake me at midnight"
+  ],
+  "start_timer_v1": [
+    "Set a timer for 10 minutes",
+    "count down 10 minutes",
+    "give me a 10 min countdown",
+    "timer for 5 minutes please",
+    "start a timer for 2 minutes",
+    "set a 20 second timer"
+  ],
+  "query_time_remaining_v1": [
+    "How much time do I have before my dentist appointment?",
+    "how long until my dentist appointment",
+    "time left before the meeting",
+    "when is my next event",
+    "how much time until my flight",
+    "time remaining before my next class"
+  ],
+  "create_conditional_reminder_v1": [
+    "Remind me to take the chicken out when it's 6pm",
+    "Remind me to buy milk when I get to the grocery store",
+    "remind me to buy milk when I reach the store",
+    "nudge me to call dad when I get home",
+    "alert me to check oven when timer goes off"
+  ],
+  "query_recent_activity_v1": [
+    "What was I doing?",
+    "what have I been doing",
+    "what did I do earlier",
+    "summarize my recent activity",
+    "what did I do this morning"
+  ],
+  "log_item_location_v1": [
+    "Remember where I put my keys",
+    "Remember where I put this",
+    "log where I placed the wallet",
+    "save location of my phone",
+    "remember where I left my glasses",
+    "note where I put my badge"
+  ],
+  "query_item_location_v1": [
+    "Where did I leave my wallet?",
+    "where are my keys",
+    "find my phone location",
+    "where did I leave my badge",
+    "find where I put my headphones"
+  ],
+  "control_focus_timer_v1": [
+    "Start a 25 minute focus timer",
+    "Stop the timer",
+    "begin pomodoro for 25 minutes",
+    "stop the focus timer",
+    "end the pomodoro session"
+  ],
+  "query_next_briefing_v1": [
+    "What's next?",
+    "what's coming up next",
+    "what's on my calendar next",
+    "next item on schedule",
+    "give me my next briefing"
+  ],
+  "create_list_v1": [
+    "Make a checklist for swimming glasses swimming shorts fins goggles",
+    "make a checklist for packing: socks, charger, passport",
+    "create a grocery list with milk, eggs, bread",
+    "swimming list goggles cap fins",
+    "packing checklist costume goggles fins",
+    "remember my swimming list goggles cap"
+  ],
+  "save_preference_v1": [
+    "Remember my favourite meals dal chawal palak paneer chicken 65",
+    "remember my favourite meals are pizza, pasta, salad",
+    "save my preferred coffee as oat milk latte",
+    "favorite desserts are cake, ice cream, pie",
+    "remember my favourite snacks are chips popcorn"
+  ],
+  "recall_stored_info_v1": [
+    "What's on my swimming checklist?",
+    "What are my favourite desserts?",
+    "what's on my packing checklist",
+    "what are my favourite meals",
+    "show my grocery list",
+    "what's on my swimming list"
+  ],
+  "remember_topic_v1": [
+    "Remember my parking spot is level 3",
+    "remember my gate code is 4471",
+    "my hotel room is 404",
+    "remember my locker combination is 22 15 8",
+    "my desk number is 214"
+  ],
+  "recall_topic_v1": [
+    "Where did I park?",
+    "what is my gate code",
+    "what was my hotel room",
+    "where is my locker",
+    "what's my desk number"
+  ],
+  "save_note_v1": [
+    "note that the meeting is at 3pm",
+    "save a note about the gate code",
+    "make a note of the wifi password",
+    "jot down the wifi password",
+    "save a note that parking is closed"
+  ],
+  "query_notes_v1": [
+    "find my notes about the project",
+    "search notes for wifi password",
+    "show me notes about the trip",
+    "search my notes for the gate code",
+    "find notes about the meeting"
+  ]
+}

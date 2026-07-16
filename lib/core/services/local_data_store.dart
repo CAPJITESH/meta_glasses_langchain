@@ -49,9 +49,24 @@ class LocalDataStore {
     return bucket[_key(reference)];
   }
 
+  /// Exact match, or one token is a >=4-char prefix of the other ("swim" ~
+  /// "swimming", "run" !~ "rung") — mirrors LocalDataStore._tokens_match.
+  static bool _tokensMatch(String a, String b) {
+    if (a == b) return true;
+    final String shorter, longer;
+    if (a.length <= b.length) {
+      shorter = a;
+      longer = b;
+    } else {
+      shorter = b;
+      longer = a;
+    }
+    return shorter.length >= 4 && longer.startsWith(shorter);
+  }
+
   /// Forgiving lookup across BOTH buckets: exact key first, then the best
-  /// token-overlap match, so "swimming" still resolves the stored
-  /// "swimming checklist". Returns null when nothing overlaps at all.
+  /// token-overlap match (with prefix tolerance), so "swim" still resolves
+  /// the stored "swimming checklist". Returns null when nothing overlaps.
   ({String queryType, String name, List<String> items})? lookupFuzzy(
     String reference,
   ) {
@@ -63,19 +78,17 @@ class LocalDataStore {
       return (queryType: 'preference', name: key, items: _preferences[key]!);
     }
 
-    Set<String> tokens(String s) => s
-        .toLowerCase()
-        .split(RegExp(r'[^a-z0-9]+'))
-        .where((t) => t.isNotEmpty)
-        .toSet();
-    final refTokens = tokens(reference);
-    if (refTokens.isEmpty) return null;
+    final queryTokens = key.split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toList();
+    if (queryTokens.isEmpty) return null;
 
     ({String queryType, String name, List<String> items})? best;
     var bestOverlap = 0;
     for (final (type, map) in [('list', _lists), ('preference', _preferences)]) {
       for (final entry in map.entries) {
-        final overlap = refTokens.intersection(tokens(entry.key)).length;
+        final nameTokens = entry.key.split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toList();
+        final overlap = queryTokens
+            .where((qt) => nameTokens.any((nt) => _tokensMatch(qt, nt)))
+            .length;
         if (overlap > bestOverlap) {
           bestOverlap = overlap;
           best = (queryType: type, name: entry.key, items: entry.value);
